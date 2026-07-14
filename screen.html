@@ -26,10 +26,18 @@
     content:'';position:absolute;inset:0;pointer-events:none;
     background:repeating-linear-gradient(115deg, rgba(255,255,255,.035) 0 3px, transparent 3px 46px);
   }
+  .top-bar{position:fixed;top:16px;right:16px;display:flex;gap:8px;z-index:10;}
+  .chip-btn{
+    font-family:'Baloo 2',sans-serif;font-size:12px;font-weight:700;
+    padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--chalk);
+    border:1px solid rgba(255,255,255,.22);cursor:pointer;transition:.15s;
+  }
+  .chip-btn:hover{background:rgba(255,255,255,.16);}
+  .chip-btn.active{background:rgba(0,230,184,.15);color:var(--turf);border-color:rgba(0,230,184,.4);}
   .conn-badge{
-    position:fixed;top:16px;right:16px;font-family:'Baloo 2',sans-serif;font-size:12px;font-weight:700;
+    font-family:'Baloo 2',sans-serif;font-size:12px;font-weight:700;
     padding:6px 14px;border-radius:999px;background:rgba(0,230,184,.15);color:var(--turf);
-    border:1px solid rgba(0,230,184,.4);z-index:10;
+    border:1px solid rgba(0,230,184,.4);
   }
   .conn-badge.off{background:rgba(255,46,154,.15);color:var(--pink);border-color:rgba(255,46,154,.4);}
 
@@ -114,7 +122,11 @@
 </head>
 <body>
 <div class="stadium-bg">
-  <div class="conn-badge off" id="connBadge">連線中…</div>
+  <div class="top-bar">
+    <button class="chip-btn" id="soundBtn" onclick="toggleAudio()">🔈 開啟音效</button>
+    <button class="chip-btn" id="fsBtn" onclick="toggleFullscreen()">⛶ 全螢幕</button>
+    <div class="conn-badge off" id="connBadge">連線中…</div>
+  </div>
   <div class="draw-wrap">
     <div class="eyebrow"><span class="dot"></span>LIVE DRAW · 現場抽獎進行中</div>
     <h1 class="title-xl">年度運動會<br><span class="accent">MVP</span> 榮耀時刻</h1>
@@ -131,11 +143,11 @@
       <div class="sweep"></div>
       <div class="burst" id="burst"></div>
       <div class="confetti" id="confettiBox"></div>
-      <div class="reel-label">MVP 得主</div>
+      <div class="reel-label" id="reelLabel">MVP 得主</div>
       <div class="reel-name" id="reelName"><span>等待開獎</span></div>
       <div class="ticket" id="ticket">🎟 獎品：老爺一日遊券</div>
     </div>
-    <p class="waiting-hint">請主持人於手機後台輸入名單並按下「開始抽獎」</p>
+    <p class="waiting-hint">請主持人於手機後台輸入名單並按下「開始抽獎」・建議先點右上角「開啟音效」</p>
   </div>
 </div>
 
@@ -160,6 +172,85 @@ let categories = [];
 let lastToken = null;
 let spinning = false;
 
+// ===== 音效（Web Audio API 即時合成，不需要外部音檔） =====
+let audioCtx = null;
+let audioEnabled = false;
+
+function ensureAudioCtx(){
+  if(!audioCtx){ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  if(audioCtx.state === 'suspended'){ audioCtx.resume(); }
+}
+
+function toggleAudio(){
+  const btn = document.getElementById('soundBtn');
+  audioEnabled = !audioEnabled;
+  if(audioEnabled){
+    ensureAudioCtx();
+    playTone(660, 0.15, 'sine', 0.25);
+    btn.textContent = '🔊 音效已開啟';
+    btn.classList.add('active');
+  } else {
+    btn.textContent = '🔈 開啟音效';
+    btn.classList.remove('active');
+  }
+}
+
+function playTone(freq, duration, type, gainPeak, delay){
+  if(!audioEnabled || !audioCtx) return;
+  const t0 = audioCtx.currentTime + (delay || 0);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(gainPeak || 0.25, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+
+function playTick(){
+  playTone(700, 0.06, 'square', 0.18);
+}
+
+function playCountdownBeep(isGo){
+  playTone(isGo ? 880 : 520, isGo ? 0.35 : 0.18, 'triangle', 0.3);
+}
+
+function playFanfare(){
+  [523.25, 659.25, 783.99, 1046.5].forEach((f,i)=> playTone(f, 0.5, 'triangle', 0.28, i*0.09));
+  playCheer();
+}
+
+function playCheer(){
+  if(!audioEnabled || !audioCtx) return;
+  const len = audioCtx.sampleRate * 0.6;
+  const buffer = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<len;i++){ data[i] = (Math.random()*2-1) * (1 - i/len); }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  noise.connect(gain).connect(audioCtx.destination);
+  noise.start();
+}
+
+// ===== 全螢幕 =====
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(()=>{});
+  } else {
+    document.exitFullscreen();
+  }
+}
+document.addEventListener('fullscreenchange', ()=>{
+  const btn = document.getElementById('fsBtn');
+  btn.textContent = document.fullscreenElement ? '⛶ 退出全螢幕' : '⛶ 全螢幕';
+  btn.classList.toggle('active', !!document.fullscreenElement);
+});
+
 function renderBulbs(){
   const box = document.getElementById('categoryBulbs');
   box.innerHTML='';
@@ -172,12 +263,42 @@ function renderBulbs(){
   });
 }
 
-function runDraw(winnerIndex){
-  if(spinning || categories.length===0) return;
+function startCountdown(n, onDone){
   spinning = true;
   document.getElementById('burst').classList.remove('show');
   document.getElementById('ticket').classList.remove('show');
   document.getElementById('confettiBox').innerHTML='';
+
+  const reel = document.getElementById('reelName');
+  const label = document.getElementById('reelLabel');
+  reel.classList.remove('spinning');
+  label.textContent = '即將揭曉';
+
+  let count = n;
+  function tick(){
+    if(count > 0){
+      reel.classList.remove('pop');
+      reel.innerHTML = `<span class="glow">${count}</span>`;
+      void reel.offsetWidth;
+      reel.classList.add('pop');
+      playCountdownBeep(false);
+      count--;
+      setTimeout(tick, 700);
+    } else {
+      reel.classList.remove('pop');
+      reel.innerHTML = `<span class="glow">GO!</span>`;
+      void reel.offsetWidth;
+      reel.classList.add('pop');
+      playCountdownBeep(true);
+      setTimeout(onDone, 400);
+    }
+  }
+  tick();
+}
+
+function runDraw(winnerIndex){
+  if(categories.length===0){ spinning = false; return; }
+  document.getElementById('reelLabel').textContent = '抽獎中';
 
   const reel = document.getElementById('reelName');
   reel.classList.add('spinning');
@@ -191,6 +312,7 @@ function runDraw(winnerIndex){
   function step(){
     const c = categories[tick % categories.length];
     reel.innerHTML = `<span>${c.name}</span>`;
+    playTick();
     document.querySelectorAll('.cat-bulb').forEach(b=>b.classList.remove('spin-highlight'));
     const hb = document.getElementById('bulb'+(tick % categories.length));
     if(hb) hb.classList.add('spin-highlight');
@@ -202,11 +324,13 @@ function runDraw(winnerIndex){
       reel.classList.remove('spinning');
       reel.innerHTML = `<span class="glow">${winner.name}</span>`;
       reel.classList.add('pop');
+      document.getElementById('reelLabel').textContent = 'MVP 得主';
       document.querySelectorAll('.cat-bulb').forEach(b=>b.classList.remove('spin-highlight'));
       const wbEl = document.getElementById('bulb'+winnerIndex);
       if(wbEl) wbEl.classList.add('spin-highlight');
       document.getElementById('burst').classList.add('show');
       document.getElementById('ticket').classList.add('show');
+      playFanfare();
       spawnConfettiBurst();
       spinning = false;
     }
@@ -247,9 +371,9 @@ roomRef.on('value', (snap)=>{
 
   if(data.round && data.round.token !== lastToken){
     lastToken = data.round.token;
-    if(data.round.status === 'spinning' && typeof data.round.winnerIndex === 'number'){
+    if(data.round.status === 'spinning' && typeof data.round.winnerIndex === 'number' && !spinning){
       renderBulbs();
-      runDraw(data.round.winnerIndex);
+      startCountdown(3, ()=> runDraw(data.round.winnerIndex));
     }
   }
 }, (err)=>{
