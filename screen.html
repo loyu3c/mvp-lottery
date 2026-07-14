@@ -64,6 +64,10 @@
     display:inline-block;animation:huebreath 5s ease-in-out infinite;
   }
   @keyframes huebreath{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+  .event-name{
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:clamp(16px,2.4vw,24px);
+    letter-spacing:.06em;color:var(--chalk-dim);margin:0 0 8px;white-space:nowrap;
+  }
   .subtitle{color:var(--chalk-dim);font-size:17px;font-weight:600;margin-bottom:44px;}
 
   .categories{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:920px;margin:0 auto 44px;}
@@ -152,7 +156,8 @@
   </div>
   <div class="draw-wrap">
     <div class="eyebrow"><span class="dot"></span>LIVE DRAW · 現場抽獎進行中</div>
-    <h1 class="title-xl">老爺活力總動員 2026 FamilyDay<br><span class="accent">MVP</span> 榮耀時刻</h1>
+    <p class="event-name">老爺活力總動員 2026 FamilyDay</p>
+    <h1 class="title-xl"><span class="accent">MVP</span> 榮耀時刻</h1>
     <p class="subtitle">四項競賽冠軍已就位，等待主持人於後台開獎</p>
 
     <div class="categories" id="categoryBulbs"></div>
