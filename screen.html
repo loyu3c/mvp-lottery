@@ -213,6 +213,7 @@ function toggleAudio(){
     btn.textContent = '🔊 音效已開啟';
     btn.classList.add('active');
   } else {
+    stopBGM();
     btn.textContent = '🔈 開啟音效';
     btn.classList.remove('active');
   }
@@ -260,6 +261,28 @@ function playCheer(){
   noise.start();
 }
 
+// ===== 開獎背景音樂（鼓點 + 貝斯律動循環，倒數開始播放到公布得主前停止） =====
+let bgmTimer = null;
+
+function startBGM(){
+  if(!audioEnabled || !audioCtx) return;
+  stopBGM();
+  let beat = 0;
+  const beatMs = 260;
+  function playBeat(){
+    playTone(90, 0.12, 'sine', 0.28);
+    if(beat % 2 === 1){ playTone(6000, 0.03, 'square', 0.04); }
+    if(beat % 4 === 0){ playTone(146.83, 0.18, 'sawtooth', 0.08); }
+    beat++;
+  }
+  playBeat();
+  bgmTimer = setInterval(playBeat, beatMs);
+}
+
+function stopBGM(){
+  if(bgmTimer){ clearInterval(bgmTimer); bgmTimer = null; }
+}
+
 // ===== 全螢幕 =====
 function toggleFullscreen(){
   if(!document.fullscreenElement){
@@ -301,6 +324,7 @@ function startCountdown(n, onDone){
   const label = document.getElementById('reelLabel');
   reel.classList.remove('spinning');
   label.textContent = '即將揭曉';
+  startBGM();
 
   let count = n;
   function tick(){
@@ -325,7 +349,7 @@ function startCountdown(n, onDone){
 }
 
 function runDraw(winnerIndex){
-  if(categories.length===0){ spinning = false; return; }
+  if(categories.length===0){ stopBGM(); spinning = false; return; }
   document.getElementById('reelLabel').textContent = '抽獎中';
 
   const reel = document.getElementById('reelName');
@@ -358,6 +382,7 @@ function runDraw(winnerIndex){
       if(wbEl) wbEl.classList.add('spin-highlight');
       document.getElementById('burst').classList.add('show');
       document.getElementById('ticket').classList.add('show');
+      stopBGM();
       playFanfare();
       spawnConfettiBurst();
       spinning = false;
